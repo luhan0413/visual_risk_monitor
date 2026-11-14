@@ -12,7 +12,6 @@ import numpy as np
 
 from core.interfaces import ScorerDriver
 from core.types import ScoreResult
-from drivers import loader
 from services.encoder_service import EncoderService
 from services.exemplar_service import ExemplarService
 
@@ -25,7 +24,7 @@ class ScoringService:
         positive: str,
         negative: str,
         min_per_label: int,
-        factory: Callable[[str], ScorerDriver] = loader.create_scorer,
+        factory: Callable[[str], ScorerDriver],
     ):
         self.exemplars = exemplars
         self.encoders = encoders
@@ -51,13 +50,23 @@ class ScoringService:
             self._fit_key, self._ready, self._reason = None, False, "尚未建立"
         return self.status()
 
+    def _missing_text(self, counts: dict[str, int]) -> str | None:
+        missing = [f"{label} {counts[label]}/{self.min_per_label}"
+                   for label in (self.negative, self.positive) if counts[label] < self.min_per_label]
+        return "範例不足：" + "、".join(missing) if missing else None
+
     def status(self) -> dict[str, Any]:
         with self._lock:
+            counts = self.exemplars.counts()
+            reason = self._reason
+            if not self._ready:
+                # 尚未分析過時，也直接告訴使用者是不是範例不夠
+                reason = self._missing_text(counts) or reason
             return {
                 "name": self._name,
                 "ready": self._ready,
-                "reason": self._reason,
-                "counts": self.exemplars.counts(),
+                "reason": reason,
+                "counts": counts,
                 "min_per_label": self.min_per_label,
                 "positive": self.positive,
                 "negative": self.negative,
@@ -76,12 +85,9 @@ class ScoringService:
             key = (self.encoders.name, self.encoders.generation, self.exemplars.version, self._name)
             if key == self._fit_key:
                 return self._ready
-            counts = self.exemplars.counts()
-            missing = [f"{label} {counts[label]}/{self.min_per_label}"
-                       for label in (self.negative, self.positive) if counts[label] < self.min_per_label]
+            missing = self._missing_text(self.exemplars.counts())
             if missing:
-                self._fit_key, self._ready = key, False
-                self._reason = "範例不足：" + "、".join(missing)
+                self._fit_key, self._ready, self._reason = key, False, missing
                 return False
             try:
                 bank = self.exemplars.build_bank(self.encoders.name, self.encoders.encode)

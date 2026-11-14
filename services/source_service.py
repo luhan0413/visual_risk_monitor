@@ -9,29 +9,31 @@ from typing import Any, Callable, Iterator
 
 import cv2
 
-import config
 from core.frame_buffer import FrameBuffer
 from core.interfaces import SourceDriver
 from core.types import Frame
-from drivers import loader
 
 
 class SourceService:
     def __init__(
         self,
         buffer: FrameBuffer,
+        factory: Callable[[str], SourceDriver],
+        catalog: Callable[[], list[dict[str, Any]]],
         capture_fps: float,
         stream_fps: float = 15.0,
         stream_quality: int = 80,
-        factory: Callable[[str], SourceDriver] = loader.create_source,
-        source_names: list[str] | None = None,
     ):
+        """
+        factory: 來源名稱 → SourceDriver
+        catalog: 回傳可用來源的基本資訊 [{"name", "driver", "url", "default"}, ...]
+        """
         self.buffer = buffer
         self.capture_fps = float(capture_fps)
         self.stream_fps = float(stream_fps)
         self.stream_quality = int(stream_quality)
         self._factory = factory
-        self._source_names = source_names if source_names is not None else list(config.SOURCES)
+        self._catalog = catalog
         self._lock = threading.RLock()
         self._driver: SourceDriver | None = None
         self._source_name: str | None = None
@@ -48,11 +50,10 @@ class SourceService:
 
     def list_sources(self) -> list[dict[str, Any]]:
         result = []
-        for name in self._source_names:
-            entry = config.SOURCES.get(name, {})
-            item = {"name": name, "driver": loader.source_driver_name(entry), "url": entry.get("url"), "options": {}}
+        for info in self._catalog():
+            item = {**info, "options": {}}
             try:
-                item["options"] = self._factory(name).options()  # 只建立物件，不會連線
+                item["options"] = self._factory(info["name"]).options()  # 只建立物件，不會連線
             except Exception as exc:  # noqa: BLE001
                 item["error"] = str(exc)
             result.append(item)

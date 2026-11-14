@@ -15,7 +15,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import config  # noqa: E402
+from services import config_service as cfg  # noqa: E402
 
 FILES = ["config.json", "model.safetensors", "video_preprocessor_config.json"]
 
@@ -28,7 +28,7 @@ def main() -> int:
 
     from huggingface_hub import snapshot_download
 
-    target = config.MODEL_DIR / (args.name or args.repo.split("/")[-1])
+    target = cfg.path("models") / (args.name or args.repo.split("/")[-1])
     print(f"下載 {args.repo} → {target}")
     snapshot_download(repo_id=args.repo, local_dir=target, allow_patterns=FILES)
     missing = [name for name in FILES if not (target / name).is_file()]

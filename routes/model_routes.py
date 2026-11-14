@@ -1,6 +1,5 @@
 from flask import Blueprint
 
-import config
 from routes.utils import api, get_json
 from services.container import get_services
 
@@ -12,13 +11,7 @@ model_bp = Blueprint(MODULE, __name__, url_prefix="/api/model")
 @model_bp.route("/get_model_status", methods=["GET"])
 @api(MODULE, "get_model_status")
 def get_model_status():
-    services = get_services()
-    return {
-        "encoder": services.encoders.status(),
-        "scorer": services.scoring.status(),
-        "available_encoders": list(config.ENCODERS),
-        "available_scorers": list(config.SCORERS),
-    }
+    return get_services().model_status()
 
 
 @model_bp.route("/select_encoder", methods=["POST"])

@@ -31,6 +31,8 @@ class MonitorService:
         clip_frames: int,
         interval_s: float,
         history_size: int,
+        stale_after_s: float = 2.0,
+        alert_levels: list[str] | tuple[str, ...] = ("MEDIUM", "HIGH"),
     ):
         self.buffer = buffer
         self.sources = sources
@@ -40,6 +42,8 @@ class MonitorService:
         self.events = events
         self.clip_frames = int(clip_frames)
         self.interval_s = float(interval_s)
+        self.stale_after_s = float(stale_after_s)
+        self.alert_levels = tuple(alert_levels)
         self._history: deque[dict[str, Any]] = deque(maxlen=history_size)
         self._lock = threading.Lock()
         self._thread: threading.Thread | None = None
@@ -58,8 +62,11 @@ class MonitorService:
     def start(self) -> dict[str, Any]:
         if not self.running:
             self._stop.clear()
+            self.leveler.reset()
+            self._last_frame_index = None
             self._thread = threading.Thread(target=self._loop, name="monitor", daemon=True)
             self._thread.start()
+            self.events.publish("monitor", {"running": True})
         return self.status()
 
     def stop(self) -> dict[str, Any]:
@@ -67,6 +74,9 @@ class MonitorService:
         if self._thread is not None:
             self._thread.join(timeout=5)
             self._thread = None
+        self._last = None  # 停止後不再提供舊結果，避免被誤當成目前狀態
+        self.leveler.reset()
+        self.events.publish("monitor", {"running": False})
         return self.status()
 
     def status(self) -> dict[str, Any]:
@@ -78,13 +88,18 @@ class MonitorService:
             "last": self._last,
         }
 
-    def current_risk(self, stale_after_s: float, alert_levels: list[str] | tuple[str, ...]) -> dict[str, Any]:
+    def current_risk(self, stale_after_s: float | None = None) -> dict[str, Any]:
         """
-        給外部系統查詢的精簡結果。
+        給外部系統查詢的精簡結果。stale_after_s 未指定時使用 config.RISK_API 的值。
 
         level 只會是設定的等級（LOW / MEDIUM / HIGH）或 NOT READY / STALE。
         呼叫端應把 NOT READY 與 STALE 視為「不知道」，不能當作安全。
         """
+        if stale_after_s is None:
+            stale_after_s = self.stale_after_s
+        elif stale_after_s <= 0:
+            raise ValueError("stale_after_s must be > 0")
+        alert_levels = self.alert_levels
         now = time.time()
         last = self._last
         source = self.sources.status()
@@ -102,7 +117,7 @@ class MonitorService:
             "server_time": now,
         }
         if not self.running:
-            result["reason"] = "分析已暫停"
+            result["reason"] = "分析未開始"
             return result
         if last is None:
             result["reason"] = "尚未有分析結果"

@@ -1,8 +1,8 @@
 from flask import Blueprint, send_from_directory
 
-import config
+from services import config_service
 
-WEB_DIR = config.BASE_DIR / "web"
+WEB_DIR = config_service.PROJECT_ROOT / "web"
 
 web_bp = Blueprint("web", __name__)
 
@@ -10,6 +10,11 @@ web_bp = Blueprint("web", __name__)
 @web_bp.route("/")
 def index():
     return send_from_directory(WEB_DIR, "index.html")
+
+
+@web_bp.route("/collect")
+def collect():
+    return send_from_directory(WEB_DIR, "collect.html")
 
 
 @web_bp.route("/assets/<path:filename>")

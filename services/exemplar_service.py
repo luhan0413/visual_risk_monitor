@@ -28,8 +28,18 @@ _NAME_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+$")
 
 
 class ExemplarService:
-    def __init__(self, root: Path, labels: tuple[str, ...] | list[str]):
+    def __init__(
+        self,
+        root: Path,
+        labels: tuple[str, ...] | list[str],
+        frame_jpeg_quality: int = 95,
+        thumbnail_size: int = 240,
+        thumbnail_jpeg_quality: int = 85,
+    ):
         self.root = Path(root)
+        self.frame_jpeg_quality = int(frame_jpeg_quality)
+        self.thumbnail_size = int(thumbnail_size)
+        self.thumbnail_jpeg_quality = int(thumbnail_jpeg_quality)
         self.labels = tuple(labels)
         for label in self.labels:
             if not re.fullmatch(r"[a-z0-9_]+", label):
@@ -40,7 +50,7 @@ class ExemplarService:
 
     # ---------- helpers ----------
 
-    def _check_label(self, label: str) -> str:
+    def check_label(self, label: str) -> str:
         if label not in self.labels:
             raise ValueError(f"不支援的類別：{label}（可用：{', '.join(self.labels)}）")
         return label
@@ -49,7 +59,7 @@ class ExemplarService:
         if not isinstance(exemplar_id, str) or not _ID_PATTERN.fullmatch(exemplar_id):
             raise ValueError(f"無效的範例 ID：{exemplar_id}")
         label = exemplar_id.rsplit("-", 3)[0]
-        self._check_label(label)
+        self.check_label(label)
         path = self.root / label / exemplar_id
         if not path.is_dir():
             raise FileNotFoundError(f"找不到範例：{exemplar_id}")
@@ -66,7 +76,7 @@ class ExemplarService:
 
     def add(self, label: str, frames: list[np.ndarray], meta: dict[str, Any] | None = None) -> dict[str, Any]:
         """frames: RGB 影像（一張圖片或一段影格）。"""
-        self._check_label(label)
+        self.check_label(label)
         if not frames:
             raise ValueError("frames must not be empty")
         exemplar_id = f"{label}-{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:6]}"
@@ -75,14 +85,14 @@ class ExemplarService:
         try:
             for index, image in enumerate(frames):
                 bgr = cv2.cvtColor(np.asarray(image, dtype=np.uint8), cv2.COLOR_RGB2BGR)
-                if not cv2.imwrite(str(path / "frames" / f"{index:03d}.jpg"), bgr, [cv2.IMWRITE_JPEG_QUALITY, 95]):
+                if not cv2.imwrite(str(path / "frames" / f"{index:03d}.jpg"), bgr, [cv2.IMWRITE_JPEG_QUALITY, self.frame_jpeg_quality]):
                     raise RuntimeError("影像寫入失敗")
             thumb = cv2.cvtColor(np.asarray(frames[-1], dtype=np.uint8), cv2.COLOR_RGB2BGR)
             height, width = thumb.shape[:2]
-            scale = 240 / max(height, width)
+            scale = self.thumbnail_size / max(height, width)
             if scale < 1:
                 thumb = cv2.resize(thumb, (int(width * scale), int(height * scale)))
-            cv2.imwrite(str(path / "thumb.jpg"), thumb, [cv2.IMWRITE_JPEG_QUALITY, 85])
+            cv2.imwrite(str(path / "thumb.jpg"), thumb, [cv2.IMWRITE_JPEG_QUALITY, self.thumbnail_jpeg_quality])
             info = {
                 "id": exemplar_id,
                 "label": label,
@@ -107,7 +117,7 @@ class ExemplarService:
     # ---------- read ----------
 
     def list(self, label: str | None = None) -> list[dict[str, Any]]:
-        labels = [self._check_label(label)] if label else self.labels
+        labels = [self.check_label(label)] if label else self.labels
         items = []
         for name in labels:
             for path in sorted((self.root / name).iterdir()):
@@ -116,8 +126,11 @@ class ExemplarService:
         return sorted(items, key=lambda item: item.get("created_at", 0), reverse=True)
 
     def ids(self, label: str) -> list[str]:
-        folder = self.root / self._check_label(label)
+        folder = self.root / self.check_label(label)
         return sorted(p.name for p in folder.iterdir() if p.is_dir() and _ID_PATTERN.fullmatch(p.name))
+
+    def summary(self, label: str | None = None) -> dict[str, Any]:
+        return {"labels": list(self.labels), "counts": self.counts(), "items": self.list(label or None)}
 
     def counts(self) -> dict[str, int]:
         return {label: len(self.ids(label)) for label in self.labels}

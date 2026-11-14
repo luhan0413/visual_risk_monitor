@@ -10,15 +10,25 @@
 
 <body>
   <header class="topbar">
-    <h1>Visual Risk Monitor <span class="sub">V-JEPA 視覺碰撞輔助警示</span></h1>
+    <div class="brand">
+      <div class="menu">
+        <button id="menu-button" class="menu-button" aria-label="選單" aria-expanded="false" aria-controls="menu-panel">
+          <span></span><span></span><span></span>
+        </button>
+        <nav id="menu-panel" class="menu-panel" hidden>
+          <a href="/">即時監控</a>
+          <a href="/collect">收集範例</a>
+        </nav>
+      </div>
+      <h1>Visual Risk Monitor <span class="sub">即時監控</span></h1>
+    </div>
     <div class="chips">
       <span class="chip" id="chip-source">來源：—</span>
       <span class="chip" id="chip-encoder">模型：—</span>
-      <span class="chip" id="chip-scorer">評分：—</span>
     </div>
   </header>
 
-  <main class="grid">
+  <main class="grid monitor-grid">
     <!-- 影像 -->
     <section class="card video-card">
       <div class="card-head">
@@ -37,72 +47,52 @@
       <div class="meta" id="source-meta"></div>
     </section>
 
-    <!-- 分數 -->
-    <section class="card score-card">
-      <h2>風險分數</h2>
-      <div class="score-value" id="score-value">--</div>
-      <div class="score-level" id="score-level">NOT READY</div>
-      <div class="score-bar">
-        <div class="score-bar-track" id="score-track"></div>
-        <div class="score-bar-marker" id="score-marker"></div>
-      </div>
-      <div class="score-scale" id="score-scale"></div>
-      <div class="reason" id="score-reason"></div>
-
-      <div class="nearest">
-        <div class="nearest-title">最像的範例</div>
-        <div class="nearest-body">
-          <img id="nearest-thumb" alt="" hidden>
-          <div id="nearest-info" class="muted">—</div>
+    <!-- 右欄：分數 + 模型資訊 -->
+    <div class="side">
+      <section class="card score-card">
+        <h2>風險分數</h2>
+        <div class="score-value" id="score-value">--</div>
+        <div class="score-level" id="score-level">NOT READY</div>
+        <div class="score-bar">
+          <div class="score-bar-track" id="score-track"></div>
+          <div class="score-bar-marker" id="score-marker"></div>
         </div>
-      </div>
-      <div class="meta" id="score-meta"></div>
-    </section>
+        <div class="score-scale" id="score-scale"></div>
+        <div class="reason" id="score-reason"></div>
+
+        <div class="nearest">
+          <div class="nearest-title">最像的範例</div>
+          <div class="nearest-body">
+            <img id="nearest-thumb" alt="" hidden>
+            <div id="nearest-info" class="muted">—</div>
+          </div>
+        </div>
+        <div class="meta" id="score-meta"></div>
+      </section>
+
+      <section class="card model-card">
+        <h2>模型資訊</h2>
+        <dl class="info-list" id="model-info"></dl>
+        <div class="meta" id="model-note"></div>
+      </section>
+    </div>
 
     <!-- 時間軸 -->
     <section class="card timeline-card">
       <div class="card-head">
         <h2>分數時間軸</h2>
         <div class="controls">
-          <button id="btn-monitor-toggle">暫停分析</button>
+          <button id="btn-monitor-toggle" class="primary">開始分析</button>
           <button id="btn-reset">清除時間軸</button>
         </div>
       </div>
       <canvas id="timeline"></canvas>
     </section>
-
-    <!-- 範例庫 -->
-    <section class="card exemplar-card">
-      <div class="card-head">
-        <h2>範例庫</h2>
-        <div class="controls" id="capture-buttons"></div>
-      </div>
-      <div class="exemplar-summary" id="exemplar-summary"></div>
-      <div class="upload">
-        <label>上傳圖片為
-          <select id="upload-label"></select>
-        </label>
-        <input type="file" id="upload-files" accept="image/*" multiple>
-        <button id="btn-upload">上傳</button>
-      </div>
-      <div class="exemplar-grid" id="exemplar-grid"></div>
-    </section>
-
-    <!-- 模型 -->
-    <section class="card model-card">
-      <h2>模型設定</h2>
-      <label class="row">特徵模型
-        <select id="encoder-select"></select>
-      </label>
-      <label class="row">評分方法
-        <select id="scorer-select"></select>
-      </label>
-      <div class="meta" id="model-meta"></div>
-    </section>
   </main>
 
   <div id="toast" class="toast" hidden></div>
-  <script src="/assets/app.js"></script>
+  <script src="/assets/common.js"></script>
+  <script src="/assets/monitor.js"></script>
 </body>
 
 </html>

@@ -6,7 +6,7 @@
 
 用法（在專案根目錄執行）：
     python scripts/evaluate_exemplars.py
-    python scripts/evaluate_exemplars.py --encoder dummy --scorer centroid
+    python scripts/evaluate_exemplars.py --scorer centroid
 """
 from __future__ import annotations
 
@@ -18,28 +18,29 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import numpy as np  # noqa: E402
 
-import config  # noqa: E402
 from core.risk import RiskLeveler  # noqa: E402
-from drivers import loader  # noqa: E402
+from services import config_service as cfg  # noqa: E402
 from services.encoder_service import EncoderService  # noqa: E402
 from services.exemplar_service import ExemplarService  # noqa: E402
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--encoder", default=config.DEFAULT_ENCODER, choices=list(config.ENCODERS))
-    parser.add_argument("--scorer", default=config.DEFAULT_SCORER, choices=list(config.SCORERS))
+    catalog = cfg.model_catalog()
+    parser.add_argument("--encoder", default=cfg.get("DEFAULT_ENCODER"), choices=catalog["available_encoders"])
+    parser.add_argument("--scorer", default=cfg.get("DEFAULT_SCORER"), choices=catalog["available_scorers"])
     args = parser.parse_args()
 
-    positive, negative = config.POSITIVE_LABEL, config.NEGATIVE_LABEL
-    exemplars = ExemplarService(config.EXEMPLAR_DIR, config.EXEMPLAR_LABELS)
+    positive, negative = cfg.positive_label(), cfg.negative_label()
+    exemplars = ExemplarService(cfg.path("exemplars"), cfg.exemplar_labels())
+    levels = cfg.get("RISK")["levels"]
     counts = exemplars.counts()
     print(f"範例數：{counts}")
     if min(counts[positive], counts[negative]) < 2:
         print("每一類至少需要 2 個範例才能做留一法評估。")
         return 1
 
-    encoders = EncoderService()
+    encoders = EncoderService(factory=cfg.make_encoder)
     print(f"載入模型 {args.encoder} …")
     encoders.select(args.encoder, background=False)
     if not encoders.ready:
@@ -47,7 +48,7 @@ def main() -> int:
         return 1
 
     bank = exemplars.build_bank(args.encoder, encoders.encode)
-    leveler = RiskLeveler(config.RISK["levels"])
+    leveler = RiskLeveler(levels)
     rows = []  # (id, true_label, score)
     for label in (negative, positive):
         ids, matrix = bank[label]
@@ -57,7 +58,7 @@ def main() -> int:
                       np.delete(lab_matrix, i, axis=0) if lab == label else lab_matrix)
                 for lab, (lab_ids, lab_matrix) in bank.items()
             }
-            scorer = loader.create_scorer(args.scorer)
+            scorer = cfg.make_scorer(args.scorer)
             scorer.fit(held_out, positive=positive, negative=negative)
             rows.append((exemplar_id, label, scorer.score(matrix[i]).score))
 
@@ -72,7 +73,7 @@ def main() -> int:
 
     print("\n各門檻的表現（分數 >= 門檻視為警示）：")
     print(f"{'門檻':>6} {'碰撞召回率':>10} {'正常誤報率':>10}")
-    for threshold in sorted({level["min"] for level in config.RISK["levels"] if level["min"] > 0} | {50, 70}):
+    for threshold in sorted({level["min"] for level in levels if level["min"] > 0} | {50, 70}):
         recall = float(np.mean(pos_scores >= threshold))
         false_alarm = float(np.mean(neg_scores >= threshold))
         print(f"{threshold:>6} {recall:>10.0%} {false_alarm:>10.0%}")

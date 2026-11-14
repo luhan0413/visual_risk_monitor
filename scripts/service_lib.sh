@@ -6,14 +6,26 @@
 # 服務清單：名稱、port、啟動指令、用來確認 PID 身分的關鍵字（避免 PID 被其他程式重用時誤殺）
 
 RUN_DIR="run"
-LOG_DIR="data/logs"
 PYTHON=".venv/bin/python"
 SERVICES=(model_server monitor)
 
+# port、log 目錄、等待時間都從 config.py 讀取（config.py 只用到標準函式庫，任何 python3 都能讀）
+read -r MONITOR_PORT MODEL_SERVER_PORT LOG_DIR START_TIMEOUT_S STOP_TIMEOUT_S < <(
+  python3 -c '
+import config
+print(config.SERVER["port"], config.MODEL_SERVER["port"], config.PATHS["logs"],
+      config.SERVICE["start_timeout_s"], config.SERVICE["stop_timeout_s"])
+'
+)
+if [ -z "${STOP_TIMEOUT_S:-}" ]; then
+  echo "讀取 config.py 失敗，請檢查 config.py 是否有語法錯誤：python3 -c 'import config'" >&2
+  exit 1
+fi
+
 service_port() {
   case "$1" in
-    model_server) echo 5200 ;;
-    monitor) echo 5100 ;;
+    model_server) echo "$MODEL_SERVER_PORT" ;;
+    monitor) echo "$MONITOR_PORT" ;;
   esac
 }
 
@@ -33,8 +45,8 @@ service_marker() {
 
 service_health_url() {
   case "$1" in
-    model_server) echo "http://127.0.0.1:5200/api/model_server/get_status" ;;
-    monitor) echo "http://127.0.0.1:5100/api/monitor/get_monitor_status" ;;
+    model_server) echo "http://127.0.0.1:$MODEL_SERVER_PORT/api/model_server/get_status" ;;
+    monitor) echo "http://127.0.0.1:$MONITOR_PORT/api/monitor/get_monitor_status" ;;
   esac
 }
 
@@ -117,7 +129,7 @@ start_service() {
 }
 
 wait_healthy() {
-  local name="$1" timeout="${2:-60}" url pid
+  local name="$1" timeout="${2:-$START_TIMEOUT_S}" url pid
   url="$(service_health_url "$name")"
   for _ in $(seq 1 $((timeout * 2))); do
     pid="$(service_pid "$name")"
@@ -145,12 +157,12 @@ stop_service() {
     return 0
   fi
   kill -TERM "$pid" 2>/dev/null || true
-  for _ in $(seq 1 20); do
+  for _ in $(seq 1 $((STOP_TIMEOUT_S * 2))); do
     kill -0 "$pid" 2>/dev/null || break
     sleep 0.5
   done
   if kill -0 "$pid" 2>/dev/null; then
-    echo "  $name 10 秒內沒有結束，強制終止"
+    echo "  $name ${STOP_TIMEOUT_S} 秒內沒有結束，強制終止"
     kill -KILL "$pid" 2>/dev/null || true
   fi
   rm -f "$(pid_file "$name")"

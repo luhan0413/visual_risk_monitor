@@ -10,14 +10,15 @@ import numpy as np
 
 from core.interfaces import ScorerDriver
 from core.types import ScoreResult
-from drivers.scorers.common import check_bank, cosine_distance, distance_ratio_score, normalize
+from drivers.scorers.common import check_bank, check_sharpness, cosine_distance, distance_ratio_score, normalize
 
 
 class KNNScorer(ScorerDriver):
-    def __init__(self, k: int = 3):
+    def __init__(self, k: int = 3, sharpness: float = 1.0):
         if k < 1:
             raise ValueError("k must be >= 1")
         self.k = int(k)
+        self.sharpness = check_sharpness(sharpness)
         self._bank: dict[str, tuple[list[str], np.ndarray]] = {}
         self._positive = ""
         self._negative = ""
@@ -44,11 +45,11 @@ class KNNScorer(ScorerDriver):
         else:
             nearest = {"exemplar_id": neg_id, "label": self._negative, "distance": neg_min}
         return ScoreResult(
-            score=distance_ratio_score(d_pos, d_neg),
+            score=distance_ratio_score(d_pos, d_neg, self.sharpness),
             ready=True,
             nearest=nearest,
             details={f"distance_{self._positive}": d_pos, f"distance_{self._negative}": d_neg},
         )
 
     def info(self) -> dict[str, Any]:
-        return {"k": self.k, "counts": {label: len(ids) for label, (ids, _) in self._bank.items()}}
+        return {"k": self.k, "sharpness": self.sharpness, "counts": {label: len(ids) for label, (ids, _) in self._bank.items()}}

@@ -10,7 +10,6 @@ import numpy as np
 from flask import Flask, Response
 from werkzeug.serving import make_server
 
-from drivers import loader
 from drivers.sources.http_stream import HTTPStreamSource
 
 
@@ -98,13 +97,15 @@ class HTTPStreamTest(unittest.TestCase):
 
     def test_config_with_only_url(self):
         import config
+        from services import config_service
 
         original = dict(config.SOURCES)
         config.SOURCES["test_cam"] = {"url": self.base + "/mjpeg", "timeout_s": 2}
         try:
-            source = loader.create_source("test_cam")
+            source = config_service.make_source("test_cam")
             self.assertIsInstance(source, HTTPStreamSource)
-            self.assertEqual(source.timeout_s, 2)
+            self.assertEqual(source.timeout_s, 2)  # 個別設定覆寫預設值
+            self.assertEqual(source.reconnect_s, config.STREAM_DEFAULTS["reconnect_s"])  # 其餘套用預設值
         finally:
             config.SOURCES.clear()
             config.SOURCES.update(original)

@@ -72,9 +72,9 @@ Model Server 在別台主機時，這台只執行 `./start.sh monitor`。
 1. **開啟影像**：選擇來源後按「開啟」
    - `replay`：回放 `data/videos/` 裡的影片（不用開手臂就能測試）
    - `left_wrist` / `right_wrist`：串流 API（網址在 `config.SOURCES` 設定）
-2. **建立範例庫**：畫面出現正常或接近碰撞的狀況時，按「存為正常範例」或「存為碰撞範例」，
-   存下的是最近一段影格（預設 16 張，約 2 秒）。也可以直接上傳圖片。
-3. **開始打分數**：每一類達到 3 個範例後（`MIN_EXEMPLARS_PER_LABEL`），系統會自動開始打分數。
+2. **建立範例庫**：左上角選單 → **收集範例**。先選標註（正常 / 碰撞），再按「拍照」（或空白鍵），
+   存下的是最近一段影格（預設 16 張，約 2 秒）。範例只能從影像來源拍照建立，不提供上傳。
+3. **開始打分數**：每一類達到 3 個範例後（`config.EXEMPLARS["min_per_label"]`），系統會自動開始打分數。
 4. **評估準確率**：範例收得差不多之後，執行離線評估（需要 Model Server 執行中），確認模型分得出兩組、門檻要設多少：
 
    ```bash
@@ -83,17 +83,19 @@ Model Server 在別台主機時，這台只執行 `./start.sh monitor`。
 
 ## 影像來源
 
-串流 API 只要在 `config.SOURCES` 填網址，不需要 driver：
+每個相機在 `config.SOURCES` 填兩個 API，不需要 driver：
 
 ```python
 SOURCES = {
-    "left_wrist": {"url": "http://<串流主機>/stream?camera=left"},
-    "front_cam":  {"url": "rtsp://192.168.50.20/stream1", "timeout_s": 10},
+    "left_wrist": {
+        "url": "http://<IP>:5001/api/perception/get_camera_stream?camera_name=left",          # 串流：即時分析
+        "snapshot_url": "http://<IP>:5001/api/perception/get_camera_image?camera_name=left",  # 拍照：收集範例
+    },
 }
 ```
 
-格式自動判斷：MJPEG 串流（`multipart/x-mixed-replace`）、單張 JPEG（自動輪詢）、`rtsp://`。
-背景只保留最新一張，不會累積延遲；斷線會自動重連。
+- `url`：格式自動判斷（MJPEG 串流、單張 JPEG 自動輪詢、`rtsp://`）。背景只保留最新一張，斷線自動重連。
+- `snapshot_url`：在「收集範例」頁按拍照時呼叫，存下一張照片。沒有填的來源（例如錄影回放）改存目前串流畫面。
 
 ## 分數與分級
 
@@ -107,20 +109,44 @@ SOURCES = {
 | 60～85 | MEDIUM |
 | ≥ 85 | HIGH |
 
-分數 = 離碰撞組多近、離正常組多遠（兩組距離相等時為 50）。門檻在 `config.py` 的 `RISK` 調整。
+```
+原始分數 = 100 × d_normal^s / (d_normal^s + d_collision^s)
+```
+
+離碰撞組越近、離正常組越遠，分數越高；兩邊一樣近時為 50。所有參數都在 `config.py` 第 1 區：
+
+| 想調整 | config.py |
+|---|---|
+| 分級門檻（60 / 85）、顏色 | `RISK["levels"]` |
+| 平滑（取最近幾次平均） | `RISK["smoothing_window"]` |
+| 分數銳利度 s | `SCORERS[...]["kwargs"]["sharpness"]` |
+| kNN 參考幾個範例 | `SCORERS["knn"]["kwargs"]["k"]` |
+| 給 brain-device 的警示等級、逾時 | `RISK_API` |
+
+## 設定原則
+
+| 層 | 負責 | 不做 |
+|---|---|---|
+| `config.py` | 只放值（數字、字串、清單），路徑寫成相對於專案根目錄的字串 | 任何計算、引用其他變數、f-string |
+| `services/` | 所有計算：`config_service.py` 讀設定並推算（路徑解析、套用預設值、組 driver 參數），其他 service 處理業務 | — |
+| `routes/` | 接收參數、呼叫 service、回傳結果 | 計算、直接讀 config |
+
+`tests/test_config.py` 會自動檢查 config.py 是否只有純值，寫了計算測試就會失敗。
 
 ## 架構
 
 ```
-web/            網頁介面（HTML / CSS / JS，不需要建置）
+web/            網頁介面（HTML / CSS / JS，不需要建置；設定從 /api/monitor/get_monitor_config 取得）
 routes/         主系統 API（Flask Blueprint，命名方式同 brain-device：/api/<module>/<action>）
-model_server/   Model Server API（/api/model_server/<action>）
-services/       業務流程：來源、模型、範例庫、評分、即時分析（兩個服務共用）
-drivers/        可替換的元件，由 drivers/loader.py 依 config.py 動態載入
+model_server/   Model Server：main.py（API）、service.py（計算）
+services/       所有計算與業務流程（兩個服務共用）
+  config_service.py   讀取 config.py 並推算設定值（其他模組不直接 import config）
+  container.py        組裝所有 service
+  source / encoder / exemplar / scoring / capture / monitor _service.py
+drivers/        可替換的元件；drivers/loader.py 只是登記表（名稱 → class），不讀 config
   sources/        http_stream（串流 API）、video_file（回放）、usb_camera
   encoders/       vjepa2_hf（本機載入權重，Model Server 用）
                   remote_http（呼叫 Model Server，主系統用）
-                  dummy（測試用）
   scorers/        knn、centroid
 core/           共用底層：資料型別、driver 介面、分級、緩衝區、事件
 models/         模型權重
@@ -234,7 +260,6 @@ curl -F model_name=vjepa2_vitl -F frames=@a.jpg -F frames=@b.jpg \
 | POST | `/api/model/select_scorer` | `{"scorer_name": "knn"}` |
 | GET | `/api/exemplar/get_exemplars` | 範例清單 |
 | POST | `/api/exemplar/capture_exemplar` | `{"label": "collision"}`，存目前畫面 |
-| POST | `/api/exemplar/upload_exemplar` | multipart：`label` + `files` |
 | POST | `/api/exemplar/delete_exemplar` | `{"exemplar_id": "..."}` |
 | GET | `/api/monitor/get_events` | SSE，即時推送每次分析結果 |
 | GET | `/api/monitor/get_history` | 本次時間軸資料 |
@@ -245,4 +270,4 @@ curl -F model_name=vjepa2_vitl -F frames=@a.jpg -F frames=@b.jpg \
 .venv/bin/python -m unittest discover -s tests -t .
 ```
 
-測試使用假的影像來源和 dummy encoder，不需要相機與 GPU。
+測試使用 `tests/` 裡的測試替身（`tests/stubs.py`），不需要相機與 GPU；系統程式不會用到它們。

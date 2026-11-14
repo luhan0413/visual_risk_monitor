@@ -8,7 +8,6 @@
 """
 from flask import Blueprint, request
 
-import config
 from routes.utils import api
 from services.container import get_services
 
@@ -20,12 +19,7 @@ risk_bp = Blueprint(MODULE, __name__, url_prefix="/api/risk")
 @risk_bp.route("/get_risk_level", methods=["GET"])
 @api(MODULE, "get_risk_level")
 def get_risk_level():
-    stale_after_s = config.RISK_API["stale_after_s"]
-    if "stale_after_s" in request.args:
-        try:
-            stale_after_s = float(request.args["stale_after_s"])
-        except ValueError as exc:
-            raise ValueError("stale_after_s must be a number") from exc
-        if stale_after_s <= 0:
-            raise ValueError("stale_after_s must be > 0")
-    return get_services().monitor.current_risk(stale_after_s, config.RISK_API["alert_levels"])
+    stale_after_s = request.args.get("stale_after_s", type=float)
+    if "stale_after_s" in request.args and stale_after_s is None:
+        raise ValueError("stale_after_s must be a number")
+    return get_services().monitor.current_risk(stale_after_s)

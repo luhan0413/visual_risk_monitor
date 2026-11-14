@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-Hant">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>收集範例 · Visual Risk Monitor</title>
+  <link rel="stylesheet" href="/assets/style.css">
+</head>
+
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="menu">
+        <button id="menu-button" class="menu-button" aria-label="選單" aria-expanded="false" aria-controls="menu-panel">
+          <span></span><span></span><span></span>
+        </button>
+        <nav id="menu-panel" class="menu-panel" hidden>
+          <a href="/">即時監控</a>
+          <a href="/collect">收集範例</a>
+        </nav>
+      </div>
+      <h1>Visual Risk Monitor <span class="sub">收集範例</span></h1>
+    </div>
+    <div class="chips">
+      <span class="chip" id="chip-source">來源：—</span>
+      <span class="chip" id="chip-encoder">模型：—</span>
+    </div>
+  </header>
+
+  <main class="grid collect-grid">
+    <!-- 影像 -->
+    <section class="card video-card">
+      <div class="card-head">
+        <h2>影像</h2>
+        <div class="controls">
+          <select id="source-select"></select>
+          <select id="video-select" hidden></select>
+          <button id="btn-source-start" class="primary">開啟</button>
+          <button id="btn-source-stop">關閉</button>
+        </div>
+      </div>
+      <div class="video-wrap">
+        <img id="video" alt="即時影像" hidden>
+        <div id="video-placeholder" class="placeholder">影像來源未啟動</div>
+        <div id="capture-flash" class="capture-flash"></div>
+      </div>
+      <div class="meta" id="source-meta"></div>
+    </section>
+
+    <!-- 拍照標註 -->
+    <section class="card capture-card">
+      <h2>拍照標註</h2>
+      <div class="step">
+        <div class="step-title"><span class="step-no">1</span>選擇標註</div>
+        <div class="label-buttons" id="label-buttons"></div>
+      </div>
+      <div class="step">
+        <div class="step-title"><span class="step-no">2</span>拍照</div>
+        <button id="btn-capture" class="capture-button" disabled>拍照</button>
+        <div class="capture-hint" id="capture-hint"></div>
+      </div>
+      <div class="exemplar-counts" id="exemplar-counts"></div>
+      <div class="meta" id="capture-method"></div>
+      <div class="meta">請使用與實際監控相同的相機與角度拍照。</div>
+    </section>
+
+    <!-- 範例庫 -->
+    <section class="card gallery-card">
+      <div class="card-head">
+        <h2>範例庫</h2>
+        <div class="segmented" id="exemplar-filter"></div>
+      </div>
+      <div class="exemplar-grid" id="exemplar-grid"></div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" hidden></div>
+  <script src="/assets/common.js"></script>
+  <script src="/assets/collect.js"></script>
+</body>
+
+</html>

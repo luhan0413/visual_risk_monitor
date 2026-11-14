@@ -7,11 +7,12 @@ import numpy as np
 
 from core.interfaces import ScorerDriver
 from core.types import ScoreResult
-from drivers.scorers.common import check_bank, cosine_distance, distance_ratio_score, normalize
+from drivers.scorers.common import check_bank, check_sharpness, cosine_distance, distance_ratio_score, normalize
 
 
 class CentroidScorer(ScorerDriver):
-    def __init__(self):
+    def __init__(self, sharpness: float = 1.0):
+        self.sharpness = check_sharpness(sharpness)
         self._bank: dict[str, tuple[list[str], np.ndarray]] = {}
         self._centroids: dict[str, np.ndarray] = {}
         self._positive = ""
@@ -39,11 +40,11 @@ class CentroidScorer(ScorerDriver):
                 best = {"exemplar_id": ids[index], "label": label, "distance": float(distances[index])}
 
         return ScoreResult(
-            score=distance_ratio_score(d_pos, d_neg),
+            score=distance_ratio_score(d_pos, d_neg, self.sharpness),
             ready=True,
             nearest=best,
             details={f"distance_{self._positive}": d_pos, f"distance_{self._negative}": d_neg},
         )
 
     def info(self) -> dict[str, Any]:
-        return {"counts": {label: len(ids) for label, (ids, _) in self._bank.items()}}
+        return {"sharpness": self.sharpness, "counts": {label: len(ids) for label, (ids, _) in self._bank.items()}}

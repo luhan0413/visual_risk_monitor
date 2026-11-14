@@ -3,8 +3,8 @@ import queue
 
 from flask import Blueprint, Response, stream_with_context
 
-import config
 from routes.utils import api
+from services import config_service
 from services.container import get_services
 
 MODULE = "monitor"
@@ -15,13 +15,7 @@ monitor_bp = Blueprint(MODULE, __name__, url_prefix="/api/monitor")
 @monitor_bp.route("/get_monitor_config", methods=["GET"])
 @api(MODULE, "get_monitor_config")
 def get_monitor_config():
-    return {
-        "levels": config.RISK["levels"],
-        "smoothing_window": config.RISK["smoothing_window"],
-        "positive_label": config.POSITIVE_LABEL,
-        "negative_label": config.NEGATIVE_LABEL,
-        "pipeline": config.PIPELINE,
-    }
+    return config_service.monitor_config()
 
 
 @monitor_bp.route("/get_monitor_status", methods=["GET"])

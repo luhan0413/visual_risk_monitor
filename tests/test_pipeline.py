@@ -1,5 +1,5 @@
 """
-端到端測試：假的影像來源 + dummy encoder + kNN，驗證整條流程（不需要相機與 GPU）。
+端到端測試：測試替身（影像來源、StubEncoder）+ kNN，驗證整條流程（不需要相機與 GPU）。
 """
 import tempfile
 import time
@@ -13,7 +13,7 @@ from core.events import EventBus
 from core.frame_buffer import FrameBuffer
 from core.interfaces import SourceDriver
 from core.risk import RiskLeveler
-from drivers.encoders.dummy import DummyEncoder
+from tests.stubs import StubEncoder
 from drivers.scorers.knn import KNNScorer
 from services.encoder_service import EncoderService
 from services.exemplar_service import ExemplarService
@@ -53,16 +53,17 @@ class PipelineTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.buffer = FrameBuffer(32)
-        self.sources = SourceService(self.buffer, capture_fps=50, factory=lambda name: FakeSource(),
-                                     source_names=["fake"])
-        self.encoders = EncoderService(factory=lambda name: DummyEncoder())
+        self.sources = SourceService(self.buffer, factory=lambda name: FakeSource(),
+                                     catalog=lambda: [{"name": "fake", "driver": "fake"}], capture_fps=50)
+        self.encoders = EncoderService(factory=lambda name: StubEncoder())
         self.exemplars = ExemplarService(Path(self.tmp.name), ("normal", "collision"))
         self.scoring = ScoringService(self.exemplars, self.encoders, "collision", "normal", 2,
                                       factory=lambda name: KNNScorer(k=1))
         self.monitor = MonitorService(self.buffer, self.sources, self.encoders, self.scoring,
                                       RiskLeveler(LEVELS, 1), EventBus(), clip_frames=4,
-                                      interval_s=0.05, history_size=100)
-        self.encoders.select("dummy", background=False)
+                                      interval_s=0.05, history_size=100,
+                                      stale_after_s=1.0, alert_levels=("MEDIUM", "HIGH"))
+        self.encoders.select("stub", background=False)
         self.scoring.select("knn")
 
     def tearDown(self):
@@ -111,10 +112,9 @@ class PipelineTest(unittest.TestCase):
         self.assertIsNotNone(red.latency_ms)
 
     def test_current_risk_ready_alert_and_stale(self):
-        alert_levels = ["MEDIUM", "HIGH"]
-        risk = self.monitor.current_risk(1.0, alert_levels)
+        risk = self.monitor.current_risk()
         self.assertEqual(risk["level"], "NOT READY")
-        self.assertIn("暫停", risk["reason"])
+        self.assertIn("未開始", risk["reason"])
 
         for color, label in ((GREEN, "normal"), (RED, "collision")):
             for shade in (0, 10):
@@ -123,7 +123,7 @@ class PipelineTest(unittest.TestCase):
         self.sources.start("fake")
         self.monitor.start()
         time.sleep(0.5)
-        risk = self.monitor.current_risk(1.0, alert_levels)
+        risk = self.monitor.current_risk()
         self.assertTrue(risk["ready"], risk["reason"])
         self.assertEqual(risk["level"], "HIGH")
         self.assertTrue(risk["alert"])
@@ -133,7 +133,7 @@ class PipelineTest(unittest.TestCase):
         # 來源停止後不再有新分析 → 超過門檻變成 STALE，alert 一律 false
         self.sources.stop()
         time.sleep(0.3)
-        risk = self.monitor.current_risk(0.2, alert_levels)
+        risk = self.monitor.current_risk(0.2)
         self.assertNotEqual(risk["level"], "HIGH")
         self.assertFalse(risk["alert"])
 
@@ -144,13 +144,13 @@ class PipelineTest(unittest.TestCase):
             "reason": None, "nearest": None,
         }
         with mock.patch.object(MonitorService, "running", new_callable=mock.PropertyMock, return_value=True):
-            risk = self.monitor.current_risk(2.0, ["MEDIUM", "HIGH"])
+            risk = self.monitor.current_risk(2.0)
             self.assertEqual(risk["level"], "STALE")
             self.assertTrue(risk["stale"])
             self.assertFalse(risk["alert"])
             self.assertGreater(risk["age_s"], 4)
 
-            fresh = self.monitor.current_risk(10.0, ["MEDIUM", "HIGH"])
+            fresh = self.monitor.current_risk(10.0)
             self.assertEqual(fresh["level"], "HIGH")
             self.assertTrue(fresh["alert"])
 
@@ -162,6 +162,13 @@ class PipelineTest(unittest.TestCase):
         history = self.monitor.history()
         self.assertGreater(len(history), 0)
         self.assertIn("t", history[-1])
+
+        # 停止後不再提供舊結果
+        self.monitor.stop()
+        self.assertIsNone(self.monitor.status()["last"])
+        risk = self.monitor.current_risk()
+        self.assertEqual(risk["level"], "NOT READY")
+        self.assertFalse(risk["alert"])
 
 
 if __name__ == "__main__":

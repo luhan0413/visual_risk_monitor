@@ -10,11 +10,10 @@ from typing import Any, Callable
 import numpy as np
 
 from core.interfaces import EncoderDriver
-from drivers import loader
 
 
 class EncoderService:
-    def __init__(self, factory: Callable[[str], EncoderDriver] = loader.create_encoder):
+    def __init__(self, factory: Callable[[str], EncoderDriver]):
         self._factory = factory
         self._lock = threading.RLock()
         self._encode_lock = threading.Lock()
