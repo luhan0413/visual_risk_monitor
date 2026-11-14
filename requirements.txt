@@ -1,0 +1,7 @@
+# 本機已驗證：Python 3.13（miniconda）、NVIDIA GB10、torch 2.9.0+cu130
+# torch / torchvision 請依 GPU 與 CUDA 版本另外安裝（這裡不鎖定）
+Flask>=3.0,<4.0
+numpy>=2.0
+opencv-python>=4.10
+requests>=2.31
+transformers>=4.53   # V-JEPA 2（vjepa2_hf encoder）；只用 dummy encoder 時可不裝

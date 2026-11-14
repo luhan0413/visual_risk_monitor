@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+data/exemplars/*/*
+data/videos/*
+!data/exemplars/*/.gitkeep
+!data/videos/.gitkeep
+data/logs/
+models/*/
+run/

@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="zh-Hant">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Visual Risk Monitor</title>
+  <link rel="stylesheet" href="/assets/style.css">
+</head>
+
+<body>
+  <header class="topbar">
+    <h1>Visual Risk Monitor <span class="sub">V-JEPA 視覺碰撞輔助警示</span></h1>
+    <div class="chips">
+      <span class="chip" id="chip-source">來源：—</span>
+      <span class="chip" id="chip-encoder">模型：—</span>
+      <span class="chip" id="chip-scorer">評分：—</span>
+    </div>
+  </header>
+
+  <main class="grid">
+    <!-- 影像 -->
+    <section class="card video-card">
+      <div class="card-head">
+        <h2>影像</h2>
+        <div class="controls">
+          <select id="source-select"></select>
+          <select id="video-select" hidden></select>
+          <button id="btn-source-start" class="primary">開啟</button>
+          <button id="btn-source-stop">關閉</button>
+        </div>
+      </div>
+      <div class="video-wrap">
+        <img id="video" alt="即時影像" hidden>
+        <div id="video-placeholder" class="placeholder">影像來源未啟動</div>
+      </div>
+      <div class="meta" id="source-meta"></div>
+    </section>
+
+    <!-- 分數 -->
+    <section class="card score-card">
+      <h2>風險分數</h2>
+      <div class="score-value" id="score-value">--</div>
+      <div class="score-level" id="score-level">NOT READY</div>
+      <div class="score-bar">
+        <div class="score-bar-track" id="score-track"></div>
+        <div class="score-bar-marker" id="score-marker"></div>
+      </div>
+      <div class="score-scale" id="score-scale"></div>
+      <div class="reason" id="score-reason"></div>
+
+      <div class="nearest">
+        <div class="nearest-title">最像的範例</div>
+        <div class="nearest-body">
+          <img id="nearest-thumb" alt="" hidden>
+          <div id="nearest-info" class="muted">—</div>
+        </div>
+      </div>
+      <div class="meta" id="score-meta"></div>
+    </section>
+
+    <!-- 時間軸 -->
+    <section class="card timeline-card">
+      <div class="card-head">
+        <h2>分數時間軸</h2>
+        <div class="controls">
+          <button id="btn-monitor-toggle">暫停分析</button>
+          <button id="btn-reset">清除時間軸</button>
+        </div>
+      </div>
+      <canvas id="timeline"></canvas>
+    </section>
+
+    <!-- 範例庫 -->
+    <section class="card exemplar-card">
+      <div class="card-head">
+        <h2>範例庫</h2>
+        <div class="controls" id="capture-buttons"></div>
+      </div>
+      <div class="exemplar-summary" id="exemplar-summary"></div>
+      <div class="upload">
+        <label>上傳圖片為
+          <select id="upload-label"></select>
+        </label>
+        <input type="file" id="upload-files" accept="image/*" multiple>
+        <button id="btn-upload">上傳</button>
+      </div>
+      <div class="exemplar-grid" id="exemplar-grid"></div>
+    </section>
+
+    <!-- 模型 -->
+    <section class="card model-card">
+      <h2>模型設定</h2>
+      <label class="row">特徵模型
+        <select id="encoder-select"></select>
+      </label>
+      <label class="row">評分方法
+        <select id="scorer-select"></select>
+      </label>
+      <div class="meta" id="model-meta"></div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" hidden></div>
+  <script src="/assets/app.js"></script>
+</body>
+
+</html>
