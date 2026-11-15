@@ -75,19 +75,20 @@
         <dl class="info-list" id="model-info"></dl>
         <div class="meta" id="model-note"></div>
       </section>
+
+      <!-- 時間軸 -->
+      <section class="card timeline-card">
+        <div class="card-head">
+          <h2>分數時間軸</h2>
+          <div class="controls">
+            <button id="btn-monitor-toggle" class="primary">開始分析</button>
+            <button id="btn-reset">清除時間軸</button>
+          </div>
+        </div>
+        <div class="timeline-wrap"><canvas id="timeline"></canvas></div>
+      </section>
     </div>
 
-    <!-- 時間軸 -->
-    <section class="card timeline-card">
-      <div class="card-head">
-        <h2>分數時間軸</h2>
-        <div class="controls">
-          <button id="btn-monitor-toggle" class="primary">開始分析</button>
-          <button id="btn-reset">清除時間軸</button>
-        </div>
-      </div>
-      <canvas id="timeline"></canvas>
-    </section>
   </main>
 
   <div id="toast" class="toast" hidden></div>

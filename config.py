@@ -51,8 +51,8 @@ RISK = {
     # 分級門檻：分數 >= min 即為該等級
     "levels": [
         {"name": "LOW", "min": 0, "color": "#2e9d5b"},
-        {"name": "MEDIUM", "min": 60, "color": "#e0a526"},
-        {"name": "HIGH", "min": 85, "color": "#d64545"},
+        {"name": "MEDIUM", "min": 50, "color": "#e0a526"},
+        {"name": "HIGH", "min": 70, "color": "#d64545"},
     ],
     # 無法判斷時（來源未開、範例不足…）顯示的顏色
     "not_ready_color": "#8a8f98",

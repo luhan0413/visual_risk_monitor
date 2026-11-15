@@ -62,6 +62,8 @@ class ScoringService:
             if not self._ready:
                 # 尚未分析過時，也直接告訴使用者是不是範例不夠
                 reason = self._missing_text(counts) or reason
+                if reason == "尚未建立":
+                    reason = "範例已足夠，按「開始分析」後建立比對"
             return {
                 "name": self._name,
                 "ready": self._ready,

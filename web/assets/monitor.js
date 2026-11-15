@@ -244,7 +244,8 @@ async function init() {
   buildScale();
   $("btn-monitor-toggle").addEventListener("click", toggleMonitor);
   $("btn-reset").addEventListener("click", () => run(() => api("/api/monitor/reset_history", {})));
-  window.addEventListener("resize", drawTimeline);
+  // 時間軸高度會跟著版面變動，尺寸改變時重畫（不只視窗縮放）
+  new ResizeObserver(() => drawTimeline()).observe($("timeline"));
 
   await loadHistory();
   connectEvents();
