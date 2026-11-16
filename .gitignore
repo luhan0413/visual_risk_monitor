@@ -8,3 +8,6 @@ data/videos/*
 data/logs/
 models/*/
 run/
+.vscode/browse.vc.db*
+c_cpp_properties.json
+settings.json

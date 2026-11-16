@@ -71,11 +71,6 @@ RISK_API = {
 # ============================================================
 
 SOURCES = {
-    # 每個相機兩個 API：
-    #   url           串流，用來即時分析。格式自動判斷：MJPEG 串流、單張 JPEG（自動輪詢）、rtsp://
-    #   snapshot_url  拍照，收集範例時按「拍照」會呼叫它取得一張照片（回傳 JPEG / PNG）
-    #                 沒有填的來源，拍照時改存目前串流畫面
-    # 也可以個別覆寫 STREAM_DEFAULTS 的項目，例如 {"url": "...", "timeout_s": 10}
     "left_wrist": {
         "url": "http://192.168.50.148:5001/api/perception/get_camera_stream?camera_name=left",
         "snapshot_url": "http://192.168.50.148:5001/api/perception/get_camera_image?camera_name=left",
@@ -95,7 +90,7 @@ SOURCES = {
 }
 
 # 網頁打開時預先選擇的來源
-DEFAULT_SOURCE = "replay"
+DEFAULT_SOURCE = "left_wrist"
 
 # 串流 API 來源的預設參數
 STREAM_DEFAULTS = {
